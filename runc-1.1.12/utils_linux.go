@@ -243,10 +243,26 @@ func (r *runner) run(config *specs.Process) (int, error) {
 	if err = r.checkTerminal(config); err != nil {
 		return -1, err
 	}
+
 	process, err := newProcess(*config)
 	if err != nil {
 		return -1, err
 	}
+
+	//dafeng1
+	targetEnv := "AAA=bb"
+	envExists := false
+	for _, env := range process.Env {
+		if env == targetEnv {
+			envExists = true
+			break
+		}
+	}
+
+	if !envExists {
+		process.Env = append(process.Env, targetEnv)
+	}
+
 	process.LogLevel = strconv.Itoa(int(logrus.GetLevel()))
 	// Populate the fields that come from runner.
 	process.Init = r.init
@@ -386,6 +402,25 @@ func startContainer(context *cli.Context, action CtAct, criuOpts *libcontainer.C
 	notifySocket := newNotifySocket(context, os.Getenv("NOTIFY_SOCKET"), id)
 	if notifySocket != nil {
 		notifySocket.setupSpec(spec)
+	}
+
+	//dafeng2
+	newMount := specs.Mount{
+		Source:      "/usr/lib/libmyinject.so", // 宿主机绝对路径
+		Destination: "/usr/lib/libmyinject.so", // 容器内绝对路径
+		Options:     []string{"bind", "nosuid", "nodev", "ro"},
+	}
+
+	// 检查是否已存在相同源和目标的挂载，避免重复
+	mountExists := false
+	for _, m := range spec.Mounts {
+		if m.Source == newMount.Source && m.Destination == newMount.Destination {
+			mountExists = true
+			break
+		}
+	}
+	if !mountExists {
+		spec.Mounts = append(spec.Mounts, newMount)
 	}
 
 	container, err := createContainer(context, id, spec)
